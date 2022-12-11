@@ -135,7 +135,7 @@ def check_types(term, context=None):
                     break
             
             if not flag:
-                raise TypeError ("Need recursive type for fold")
+                raise TypeError ("Need recursive type for fold {}".format(syntax.format_term(term)))
             
             [_, find, replacer] = var_type 
             t1_type = sub_var(find, var_type, replacer)
@@ -143,15 +143,17 @@ def check_types(term, context=None):
             if check_equal(check_types(term[1],context),t1_type, context): # check if t1 fits recursive type
                 return var_type
             else:
-                raise TypeError("{} is not of specified recursive type".format(syntax.format_term(term[1])))
+                raise TypeError("{} is not of specified recursive type".format(syntax.format_type(term[2])))
         
         elif term[0] == "unfold":
+            flag = False
             for i in context.items():
                 if i[1][0] == "mu":
                     var_type = i[1]
+                    flag = True
                     break
             
-            if not var_type:
+            if not flag:
                 raise("Need recursive type for fold")
             
             if not check_equal(check_types(term[1],context), var_type, context):
@@ -162,6 +164,34 @@ def check_types(term, context=None):
             unfold_type = sub_var(find, var_type, term)
 
             return sub_var(find, var_type, term)
+        
+        elif term[0] == "typedunfold":
+            var_type = term[1]
+            
+            if not var_type[0] == 'mu':
+                raise TypeError("Need recursive type for {}".format(syntax.format_term(term)))
+            
+            if not check_equal(check_types(term[2],context), var_type, context):
+                raise TypeError("{} needs to be of type {}".format(syntax.format_term(term[2]), syntax.format_type(var_type)))
+
+            [_, find, term] = var_type
+
+            unfold_type = sub_var(find, var_type, term)
+
+            return sub_var(find, var_type, term)
+        
+        elif term[0] == "typedfold":
+            var_type = term[1]
+            
+            if not var_type[0] == 'mu':
+                raise TypeError("Need recursive type for unfold {}".format(syntax.format_term(term)))
+
+            [_, find, replacer] = var_type 
+            t1_type = sub_var(find, var_type, replacer)
+            if check_equal(check_types(term[2],context),t1_type, context): # check if t1 fits recursive type
+                return var_type
+            else:
+                raise TypeError("{} is not of specified recursive type".format(syntax.format_term(term[2])))
         
     elif term == "zero":
         return "Nat"
@@ -272,6 +302,12 @@ def erase_types(t): # remove types to perform lambda calculus
         if t[0] == "typedinject":
             [_, term, index, _] = t
             return ["inject", term, index]
+        if t[0] == "typedfold":
+            [_, _, term] = t 
+            return ["fold", term]
+        if t[0] == "typedunfold":
+            [_,_, term] = t
+            return ["unfold",term]
         else:
             return [erase_types(child) for child in t]
     else:

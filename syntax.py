@@ -15,7 +15,7 @@ special_toks = ["=>", # must come before "="
                 "(", ")", "λ", "\\", ".", "=", ":", "->",
                 "*", "{", ",", "}",
                 "+", "|",
-                "μ", "mu",
+                "μ", "mu", "[", "]",
                 ]
 
 reserved_words = ["0", "succ", "pred", "iszero",
@@ -24,10 +24,11 @@ reserved_words = ["0", "succ", "pred", "iszero",
                   "fix",
                   "inl", "inr", "as", "case", "of",
                   "fold", "unfold",
+                  "try", "with", "raise",
                   ]
 
 # tokens that end a chain of applications
-terminators = [")", "then", "else", "in", "as", ",", "}", "of", "=>", "|"]
+terminators = [")", "then", "else", "in", "as", 'with', ",", "}", "of", "=>", "|"]
 
 ### Lexer
 
@@ -121,13 +122,42 @@ def parse_abs(w):
         expect('=>', w)
         tr = parse_abs(w)
         return ['case', t0, xl, tl, xr, tr]
+    elif w[0] == 'try':
+        expect('try', w)
+        tt = parse_abs(w)
+        expect('with', w)
+        th = parse_abs(w)
+        return ['try', tt, th]
     else:
         return parse_app(w)
 
 def parse_app(w):
-    if w[0] in ["succ", "pred", "iszero", "fix", "fold", "unfold"]:
+    if w[0] in ["succ", "pred", "iszero", "fix"]:
         op = w.popleft()
         t = [op, parse_atom(w)]
+        
+    elif w[0] in ['fold', 'unfold']:
+        op = w.popleft()
+        if len(w) > 0 and w[0] == '[':
+            expect('[', w)
+            typ = parse_type(w)
+            expect(']', w)
+            arg = parse_atom(w)
+            return ['typed'+op, typ, arg]
+        else:
+            arg = parse_atom(w)
+            return [op, arg]
+        
+    elif w[0] == 'raise':
+        w.popleft()
+        arg = parse_atom(w)
+        if len(w) > 0 and w[0] == 'as':
+            expect('as', w)
+            typ = parse_type(w)
+            t = ['typedraise', arg, typ]
+        else:
+            t = ['raise', arg]
+        
     elif w[0] in ['inl', 'inr']:
         op = w.popleft()
         if op == 'inl':
@@ -259,11 +289,13 @@ def format_abs(t):
             return "<closure>"
         elif t[0] == 'case':
             return f'case {format_abs(t[1])} of inl {t[2]} => {format_abs(t[3])} | inr {t[4]} => {format_abs(t[5])}'
+        elif t[0] == 'try':
+            return f'try {format_abs(t[1])} with {format_abs(t[2])}'
     return format_app(t)
 
 def format_app(t):
     if isinstance(t, list):
-        if t[0] in ["succ", "pred", "iszero", "fix", "fold", "unfold"]:
+        if t[0] in ["succ", "pred", "iszero", "fix", "fold", "unfold", "raise"]:
             return "{} {}".format(t[0], format_atom(t[1]))
         elif t[0] == 'inject':
             if t[2] == 1:
@@ -272,9 +304,15 @@ def format_app(t):
                 return f'inr {format_atom(t[1])}'
         elif t[0] == 'typedinject':
             if t[2] == 1:
-                return f'inl {format_atom(t[1])} as {format_arrow(t[3])}'
+                return f'inl {format_atom(t[1])} as {format_type(t[3])}'
             elif t[2] == 2:
-                return f'inr {format_atom(t[1])} as {format_arrow(t[3])}'
+                return f'inr {format_atom(t[1])} as {format_type(t[3])}'
+        elif t[0] == 'typedfold':
+            return f'fold[{format_type(t[1])}] {format_atom(t[2])}'
+        elif t[0] == 'typedunfold':
+            return f'unfold[{format_type(t[1])}] {format_atom(t[2])}'
+        elif t[0] == 'typedraise':
+            return f'raise {format_atom(t[1])} as {format_type(t[2])}'
         elif t[0] == "app":
             return "{} {}".format(format_app(t[1]), format_atom(t[2]))
     return format_atom(t)
@@ -354,4 +392,3 @@ if __name__ == "__main__":
         t = parse_term(line)
         print(t)
         print(format_term(t))
-        
