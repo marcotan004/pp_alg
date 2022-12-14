@@ -154,7 +154,7 @@ def check_types(term, context=None):
                     break
             
             if not flag:
-                raise("Need recursive type for fold")
+                raise TypeError(("Need recursive type for fold"))
             
             if not check_equal(check_types(term[1],context), var_type, context):
                 raise TypeError("{} needs to be of type {}".format(syntax.format_term(term[1]), syntax.format_type([var_type])))
@@ -301,13 +301,13 @@ def erase_types(t): # remove types to perform lambda calculus
             return ["lambda", var, erase_types(body)]
         if t[0] == "typedinject":
             [_, term, index, _] = t
-            return ["inject", term, index]
+            return ["inject", erase_terms(term), index]
         if t[0] == "typedfold":
             [_, _, term] = t 
-            return ["fold", term]
+            return ["fold", erase_types(term)]
         if t[0] == "typedunfold":
             [_,_, term] = t
-            return ["unfold",term]
+            return ["unfold",erase_types(term)]
         else:
             return [erase_types(child) for child in t]
     else:

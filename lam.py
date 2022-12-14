@@ -180,7 +180,10 @@ def eval_term(term):
             return ["fold", eval_term(term[1])]
         
         elif term[0] == "unfold": # E-UNFLD
-            return ["unfold", eval_term(term[1])]
+            if eval_term(term[1])[0] == "fold":
+                return eval_term(term[1])[1]
+            else:
+                return ["unfold", eval_term(term[1])]
 
         else:
             raise ValueError("invalid term: {}".format(term))
