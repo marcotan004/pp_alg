@@ -301,7 +301,7 @@ def erase_types(t): # remove types to perform lambda calculus
             return ["lambda", var, erase_types(body)]
         if t[0] == "typedinject":
             [_, term, index, _] = t
-            return ["inject", erase_terms(term), index]
+            return ["inject", erase_types(term), index]
         if t[0] == "typedfold":
             [_, _, term] = t 
             return ["fold", erase_types(term)]
